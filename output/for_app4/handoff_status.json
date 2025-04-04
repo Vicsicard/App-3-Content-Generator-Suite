@@ -1,0 +1,21 @@
+{
+  "project_id": "PROJECT_PLACEHOLDER",
+  "user_id": "USER_PLACEHOLDER",
+  "ready_for_app4": false,
+  "content_status": "pending_real_content",
+  "files": [
+    { "filename": "output_blog.md", "status": "pending", "word_count_required": "600-900" },
+    { "filename": "output_show_notes.md", "status": "pending", "word_count_required": "≤500" },
+    { "filename": "output_newsletter.md", "status": "pending", "word_count_required": "200-300" },
+    { "filename": "output_social_kit.md", "status": "pending", "word_count_required": "varies" },
+    { "filename": "output_bio.md", "status": "pending", "word_count_required": "varies" },
+    { "filename": "output_ad_copy.md", "status": "pending", "word_count_required": "varies" }
+  ],
+  "requirements": {
+    "needs_real_content": true,
+    "needs_speaker1_quotes": true,
+    "needs_style_adherence": true,
+    "needs_word_count_validation": true
+  },
+  "last_updated": "2025-04-03T21:15:43-06:00"
+}
