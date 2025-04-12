@@ -9,10 +9,138 @@ a compelling 200-300 word introduction that captures key insights
 and emotional resonance.
 """
 
-from typing import Dict, List, Optional, Tuple
-import re
-from datetime import datetime
+from typing import Dict, List, Any, Tuple
 from pathlib import Path
+from .base_agent import ContentAgent
+from content_generator.utils.content_writer import format_markdown_section
+
+
+class NewsletterWriterAgent(ContentAgent):
+    """Newsletter writer agent that creates newsletter content."""
+    
+    def generate(self) -> str:
+        """Generate newsletter content using transcript and style profile."""
+        # Extract content elements and style data
+        content_elements = self._extract_content_elements()
+        style_data = self._parse_style_profile()
+        
+        # Generate newsletter sections
+        header = self._generate_header(content_elements, style_data)
+        main_content = self._generate_main_content(content_elements, style_data)
+        call_to_action = self._generate_call_to_action(content_elements, style_data)
+        
+        # Combine all sections
+        newsletter = [
+            "# Newsletter Content\n",
+            header,
+            main_content,
+            call_to_action
+        ]
+        
+        return "\n".join(newsletter)
+        
+    def _extract_content_elements(self) -> Dict[str, List[str]]:
+        """Extract content elements from transcript."""
+        elements = {
+            'insights': [],
+            'topics': [],
+            'takeaways': []
+        }
+        current_section = None
+        current_text = []
+        
+        for line in self.transcript.split('\n'):
+            if line.startswith('Speaker 2:'):
+                if current_text:
+                    text = ' '.join(current_text)
+                    if any(word in text.lower() for word in ['key', 'important', 'critical']):
+                        elements['insights'].append(text)
+                    elif any(word in text.lower() for word in ['learn', 'discover', 'understand']):
+                        elements['takeaways'].append(text)
+                    else:
+                        elements['topics'].append(text)
+                    current_text = []
+                current_text.append(line.replace('Speaker 2:', '').strip())
+            elif current_text:
+                current_text.append(line.strip())
+                
+        # Process final section
+        if current_text:
+            text = ' '.join(current_text)
+            if any(word in text.lower() for word in ['key', 'important', 'critical']):
+                elements['insights'].append(text)
+            elif any(word in text.lower() for word in ['learn', 'discover', 'understand']):
+                elements['takeaways'].append(text)
+            else:
+                elements['topics'].append(text)
+                
+        return elements
+        
+    def _parse_style_profile(self) -> Dict[str, List[str]]:
+        """Parse style profile into structured data."""
+        style_data = {
+            'themes': [],
+            'values': [],
+            'tone': []
+        }
+        current_section = None
+        
+        for line in self.style_profile.split('\n'):
+            if line.startswith('## '):
+                current_section = line[3:].lower().strip(':')
+            elif line.startswith('- ') and current_section in style_data:
+                style_data[current_section].append(line[2:])
+                
+        return style_data
+        
+    def _generate_header(self, content: Dict[str, List[str]], style: Dict[str, List[str]]) -> str:
+        """Generate newsletter header."""
+        theme = style['themes'][0] if style['themes'] else 'Professional Excellence'
+        insight = content['insights'][0] if content['insights'] else 'Valuable insights and updates'
+        
+        header = [
+            "## Newsletter Header\n",
+            f"🌟 {theme}\n",
+            f"{insight}\n"
+        ]
+        return "\n".join(header)
+        
+    def _generate_main_content(self, content: Dict[str, List[str]], style: Dict[str, List[str]]) -> str:
+        """Generate main newsletter content."""
+        topics = content['topics'][:3] if content['topics'] else []
+        values = style['values'][:3] if style['values'] else []
+        
+        main_content = [
+            "\n## Main Content\n"
+        ]
+        
+        for i, (topic, value) in enumerate(zip(topics, values), 1):
+            main_content.extend([
+                f"### {value}\n" if value else f"### Section {i}\n",
+                f"{topic}\n" if topic else "Exploring professional insights and growth opportunities.\n"
+            ])
+            
+        return "\n".join(main_content)
+        
+    def _generate_call_to_action(self, content: Dict[str, List[str]], style: Dict[str, List[str]]) -> str:
+        """Generate call to action section."""
+        takeaways = content['takeaways'][:2] if content['takeaways'] else []
+        
+        cta = [
+            "\n## Next Steps\n",
+            "### Key Takeaways\n"
+        ]
+        
+        for takeaway in takeaways:
+            cta.append(f"- {takeaway}\n")
+            
+        cta.extend([
+            "\n### Take Action\n",
+            "Ready to learn more? Let's connect and explore these topics further.\n"
+        ])
+        
+        return "\n".join(cta)
+
 
 def extract_email_voice(style_profile: str) -> Dict[str, str]:
     """

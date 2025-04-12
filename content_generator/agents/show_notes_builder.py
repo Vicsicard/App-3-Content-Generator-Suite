@@ -14,6 +14,27 @@ import re
 from datetime import datetime
 from collections import Counter
 from pathlib import Path
+from .base_agent import ContentAgent
+
+
+class ShowNotesBuilderAgent(ContentAgent):
+    """Show notes builder agent that creates podcast-style notes from transcripts."""
+    
+    def generate(self) -> str:
+        """Generate show notes using transcript and style profile."""
+        # Extract key highlights
+        highlights = extract_highlights(self.transcript)
+        
+        # Create episode summary
+        summary = summarize_episode(self.style_profile, highlights)
+        
+        # Craft teaser hook
+        teaser = craft_teaser(self.style_profile, highlights)
+        
+        # Format final show notes
+        show_notes = format_show_notes(teaser, summary, highlights)
+        
+        return show_notes
 
 
 def extract_highlights(transcript_text: str) -> List[str]:

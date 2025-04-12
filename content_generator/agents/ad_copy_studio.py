@@ -241,3 +241,119 @@ def generate(transcript_text: str, style_profile: str) -> str:
     output_file.write_text(content, encoding='utf-8')
     
     return content
+
+
+"""
+Ad Copy Studio Agent
+
+Creates compelling ad copy from narrative content.
+"""
+
+from typing import Dict, List, Any
+from pathlib import Path
+from .base_agent import ContentAgent
+from content_generator.utils.content_writer import format_markdown_section
+
+
+class AdCopyStudioAgent(ContentAgent):
+    """Ad copy studio agent that creates advertising content."""
+    
+    def generate(self) -> str:
+        """Generate ad copy using transcript and style profile."""
+        # Extract selling points and style data
+        selling_points = self._extract_selling_points()
+        style_data = self._parse_style_profile()
+        
+        # Generate ad sections
+        headlines = self._generate_headlines(selling_points, style_data)
+        body_copy = self._generate_body_copy(selling_points, style_data)
+        cta = self._generate_cta(style_data)
+        
+        # Combine all sections
+        ad_copy = [
+            "# Ad Copy Content\n",
+            headlines,
+            body_copy,
+            cta
+        ]
+        
+        return "\n".join(ad_copy)
+        
+    def _extract_selling_points(self) -> List[Dict[str, str]]:
+        """Extract key selling points from transcript."""
+        points = []
+        current_point = []
+        
+        for line in self.transcript.split('\n'):
+            if line.startswith('Speaker 2:'):
+                if current_point:
+                    points.append({
+                        'benefit': current_point[0][:50],
+                        'details': ' '.join(current_point)
+                    })
+                    current_point = []
+                current_point.append(line.replace('Speaker 2:', '').strip())
+            elif current_point:
+                current_point.append(line.strip())
+                
+        # Add final point
+        if current_point:
+            points.append({
+                'benefit': current_point[0][:50],
+                'details': ' '.join(current_point)
+            })
+            
+        return points[:3]  # Return top 3 selling points
+        
+    def _parse_style_profile(self) -> Dict[str, List[str]]:
+        """Parse style profile into structured data."""
+        style_data = {
+            'themes': [],
+            'values': [],
+            'tone': []
+        }
+        current_section = None
+        
+        for line in self.style_profile.split('\n'):
+            if line.startswith('## '):
+                current_section = line[3:].lower().strip(':')
+            elif line.startswith('- ') and current_section in style_data:
+                style_data[current_section].append(line[2:])
+                
+        return style_data
+        
+    def _generate_headlines(self, points: List[Dict[str, str]], style: Dict[str, List[str]]) -> str:
+        """Generate ad headlines."""
+        theme = style['themes'][0] if style['themes'] else 'Excellence'
+        headlines = ["## Headlines\n"]
+        
+        for point in points:
+            headlines.extend([
+                f"### 🎯 Transform Your {theme} Today!\n",
+                f"Discover how to {point['benefit'].lower()}...\n"
+            ])
+            
+        return "\n".join(headlines)
+        
+    def _generate_body_copy(self, points: List[Dict[str, str]], style: Dict[str, List[str]]) -> str:
+        """Generate ad body copy."""
+        body = ["## Body Copy\n"]
+        
+        for point in points:
+            body.extend([
+                "### Key Benefit\n",
+                f"{point['details']}\n"
+            ])
+            
+        return "\n".join(body)
+        
+    def _generate_cta(self, style: Dict[str, List[str]]) -> str:
+        """Generate call-to-action copy."""
+        value = style['values'][0] if style['values'] else 'success'
+        cta = [
+            "## Call to Action\n",
+            f"Ready to achieve {value}?",
+            "Click now to get started!\n",
+            "Limited time offer - Don't miss out! 🚀\n"
+        ]
+        return "\n".join(cta)

@@ -1,0 +1,11 @@
+## [Chunk 01]
+**Timestamp**: 00:00:00 — 00:01:30
+> Speaker 2: I always knew I wanted to make an impact, but the path wasn't clear. It's like I was trying to read a map in the dark. You know that feeling when you're so sure about the destination but every route seems equally uncertain?
+
+## [Chunk 02]
+**Timestamp**: 00:01:31 — 00:02:45
+> Speaker 2: The turning point came when I stopped trying to follow someone else's blueprint. I realized that my unique perspective - the very things that made me different - those were actually my strengths.
+
+## [Chunk 03]
+**Timestamp**: 00:02:46 — 00:04:15
+> Speaker 2: Now when I walk into a room, I bring my full self. No dimming, no apologizing. It took years to get here, but that authenticity? It's non-negotiable now. And surprisingly, that's when people started really connecting with my message.
