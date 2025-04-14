@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient.ts';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -13,6 +13,8 @@ interface ContentOptions {
   status?: 'draft' | 'approved' | 'published';
   thumbnail?: string;
   video_id?: string;
+  excerpt?: string;
+  user_id?: string;
 }
 
 export async function writeContent(
@@ -20,6 +22,10 @@ export async function writeContent(
   content: string,
   options?: ContentOptions
 ) {
+  // Default user_id for Annie's content
+  const defaultUserId = 'annie-123';  // We should get this from environment or config
+  const userId = options?.user_id || defaultUserId;
+
   // Ensure output directories exist
   const outputDirs = ['output/app3', 'output/for_app4'];
   await Promise.all(
@@ -29,78 +35,93 @@ export async function writeContent(
   // Write to files (maintain backward compatibility)
   await Promise.all(
     outputDirs.map(dir => 
-      fs.writeFile(
-        path.join(dir, filename),
-        content,
-        'utf-8'
-      )
+      fs.writeFile(path.join(dir, filename), content, 'utf-8')
     )
   );
 
-  // Map filename to section if not provided
-  const section = options?.section || mapFilenameToSection(filename);
-  
-  // Special handling for Instagram posts
-  if (options?.platform === 'instagram') {
-    // Generate visual content filename
-    const visualFilename = filename.replace('.md', '_visual.png');
-    
-    // Save placeholder for visual content
-    await Promise.all(
-      outputDirs.map(dir =>
-        fs.writeFile(
-          path.join(dir, visualFilename),
-          'Placeholder for Instagram visual', // This would be replaced with actual image generation
-          'utf-8'
-        )
-      )
-    );
+  // Write to Supabase if configured
+  if (supabase && options?.section) {
+    try {
+      // First, check if content already exists for this user and section
+      const { data: existingContent, error: fetchError } = await supabase
+        .from('content')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('section', options.section)
+        .eq('platform', options.platform || null)  // Include platform for social posts
+        .single();
 
-    // Update options with visual content path
-    options.thumbnail = `output/app3/${visualFilename}`;
-  }
+      if (fetchError && fetchError.code !== 'PGRST116') {  // PGRST116 is "not found" error
+        console.error('Error checking for existing content:', fetchError);
+        throw fetchError;
+      }
 
-  // Write to Supabase
-  try {
-    const { data, error } = await supabase
-      .from('content')
-      .insert([
-        {
-          section,
-          content,
-          status: options?.status || 'draft',
-          title: options?.title,
-          type: options?.type,
-          platform: options?.platform,
-          scheduledDate: options?.scheduledDate,
-          caption: options?.caption,
-          tags: options?.tags,
-          thumbnail: options?.thumbnail,
-          video_id: options?.video_id,
-          updated_at: new Date().toISOString()
-        }
-      ])
-      .select();
+      let result;
+      if (existingContent?.id) {
+        // Update existing content
+        result = await supabase
+          .from('content')
+          .update({
+            content,
+            title: options.title,
+            type: options.type,
+            platform: options.platform,
+            scheduled_date: options.scheduledDate,
+            caption: options.caption,
+            tags: options.tags,
+            status: options.status || 'draft',
+            thumbnail: options.thumbnail,
+            video_id: options.video_id,
+            excerpt: options.excerpt,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingContent.id)
+          .select();
+      } else {
+        // Insert new content
+        result = await supabase
+          .from('content')
+          .insert([
+            {
+              content,
+              section: options.section,
+              title: options.title,
+              type: options.type,
+              platform: options.platform,
+              scheduled_date: options.scheduledDate,
+              caption: options.caption,
+              tags: options.tags,
+              status: options.status || 'draft',
+              thumbnail: options.thumbnail,
+              video_id: options.video_id,
+              excerpt: options.excerpt,
+              user_id: userId
+            }
+          ])
+          .select();
+      }
 
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error writing to Supabase:', error);
-    // Don't throw - allow file writing to continue even if DB fails
-    return null;
+      if (result.error) {
+        console.error('Error writing to Supabase:', result.error);
+        throw result.error;
+      }
+
+      const action = existingContent ? 'Updated' : 'Created';
+      console.log(`${action} ${options.section} content for user ${userId}`);
+
+    } catch (error) {
+      console.error('Error writing to Supabase:', error);
+      throw error;
+    }
   }
 }
 
+// Helper function to map filenames to content sections
 function mapFilenameToSection(filename: string): string {
-  const mapping: Record<string, string> = {
+  const sectionMap: { [key: string]: string } = {
     'output_blog.md': 'blog',
-    'output_bio.md': 'about',
-    'output_social_kit.md': 'social',
-    'output_newsletter.md': 'blog',
-    'output_show_notes.md': 'blog',
-    'output_ad_copy.md': 'social',
-    'output_reputation.md': 'blog'
+    'output_social_posts.md': 'social',
+    'output_newsletter.md': 'newsletter'
   };
-  
-  return mapping[filename] || 'blog';
+  return sectionMap[filename] || 'other';
 }

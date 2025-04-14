@@ -25,140 +25,132 @@ def verify_python_version():
 # Verify Python version before anything else
 verify_python_version()
 
-# Import input loader
-from content_generator.utils.input_loader import load_transcript, load_style_profile
+# Import storage managers
+from content_generator.storage.input_storage import input_storage
+from content_generator.storage.supabase_storage import storage_manager
 
 # Import all agents
-from content_generator.agents.blog_generator import BlogGeneratorAgent
-from content_generator.agents.show_notes_builder import ShowNotesBuilderAgent
-from content_generator.agents.newsletter_writer import NewsletterWriterAgent
-from content_generator.agents.social_media_kit import SocialMediaKitAgent
-from content_generator.agents.bio_creator import BioCreatorAgent
-from content_generator.agents.ad_copy_studio import AdCopyStudioAgent
-from content_generator.agents.reputation_repair import ReputationRepairAgent
-from content_generator.agents.website_generator import WebsiteGeneratorAgent
+from content_generator.agents.blog_generator import BlogGenerator
+from content_generator.agents.show_notes_writer import ShowNotesWriter
+from content_generator.agents.bio_writer import BioWriter
+from content_generator.agents.ad_copy_writer import AdCopyWriter
+from content_generator.agents.reputation_writer import ReputationWriter
+from content_generator.agents.social_media_writer import SocialMediaWriter
+from content_generator.agents.website_writer import WebsiteWriter
 
 # Define agent output mapping
-AGENT_OUTPUTS = {
-    'blog_generator': 'output_blog.md',
-    'show_notes_builder': 'output_show_notes.md',
-    'newsletter_writer': 'output_newsletter.md',
-    'social_media_kit': 'output_social_posts.md',
-    'bio_creator': 'output_bio.md',
-    'ad_copy_studio': 'output_ad_copy.md',
-    'reputation_repair': 'output_reputation.md',
-    'website_generator': 'output_website.md'
+AGENT_TYPES = {
+    'blog_generator': BlogGenerator,
+    'show_notes_writer': ShowNotesWriter,
+    'bio_writer': BioWriter,
+    'ad_copy_writer': AdCopyWriter,
+    'reputation_writer': ReputationWriter,
+    'social_media_writer': SocialMediaWriter,
+    'website_writer': WebsiteWriter
 }
 
-# Define agent execution order
-AGENT_ORDER = [
-    (BlogGeneratorAgent, 'blog_generator'),
-    (ShowNotesBuilderAgent, 'show_notes_builder'),
-    (NewsletterWriterAgent, 'newsletter_writer'),
-    (SocialMediaKitAgent, 'social_media_kit'),
-    (BioCreatorAgent, 'bio_creator'),
-    (AdCopyStudioAgent, 'ad_copy_studio'),
-    (ReputationRepairAgent, 'reputation_repair'),
-    (WebsiteGeneratorAgent, 'website_generator')
-]
+# Define content type mapping
+CONTENT_TYPES = {
+    'blog_generator': 'blog',
+    'show_notes_writer': 'show_notes',
+    'bio_writer': 'bio',
+    'ad_copy_writer': 'ad',
+    'reputation_writer': 'reputation',
+    'social_media_writer': 'social',
+    'website_writer': 'website'
+}
 
-def setup_logging(output_dir: Path) -> None:
+def setup_logging():
     """Set up logging configuration."""
-    log_file = output_dir / "content_generator.log"
-    
-    # Create a formatter
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    
-    # Set up file handler
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(formatter)
-    
-    # Set up console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-    
-    logging.info("Content Generator Suite starting...")
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s:%(message)s'
+    )
 
-def save_output(content: str, filename: str, output_dir: Path) -> None:
-    """Save generated content to output file."""
+# Set up logging configuration
+setup_logging()
+
+def run_agent(agent_name: str, transcript: str, style: str, client_id: str) -> None:
+    """Run a single agent and store its output.
+    
+    Args:
+        agent_name: Name of the agent (for logging)
+        transcript: Transcript content
+        style: Style profile content
+        client_id: Client identifier
+    """
     try:
-        # Ensure output directory exists
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / filename
-        output_path.write_text(content, encoding='utf-8')
-        logging.info(f" Saved: {filename}")
+        # Get agent class and initialize
+        agent_class = AGENT_TYPES[agent_name]
+        agent = agent_class()
+        
+        # Generate content
+        content = agent.generate(transcript, style)
+        
+        # Store in Supabase
+        content_type = CONTENT_TYPES[agent_name]
+        metadata = {
+            'client_id': client_id,
+            'generator': agent_name,
+            'generated_at': datetime.now().isoformat()
+        }
+        
+        storage_path = storage_manager.store_content(
+            content_type=content_type,
+            content=content,
+            metadata=metadata
+        )
+        
+        logging.info(f"Successfully ran {agent_name} and stored at {storage_path}")
+        
     except Exception as e:
-        logging.error(f"Failed to save {filename}: {str(e)}")
+        logging.error(f"Error running {agent_name}: {str(e)}")
         raise
 
-def run_agent(agent_class, agent_name: str, transcript: str, style: str) -> str:
-    """Run a single agent with error handling."""
-    try:
-        logging.info(f"Running {agent_name}...")
-        # Instantiate the agent
-        agent_instance = agent_class(style, transcript)
-        # Generate content
-        return agent_instance.generate()
-    except Exception as e:
-        logging.error(f"Error in {agent_name}: {str(e)}")
-        return f"# Error in {agent_name}\nFailed to generate content: {str(e)}"
-
-def run_content_generation(transcript_text: str, style_data: str, output_dir: Path) -> None:
-    """Run content generation with all agents."""
-    # Process with each agent in order
-    logging.info("\nGenerating content...")
-    success_count = 0
-    total_agents = len(AGENT_ORDER)
-    start_time = datetime.now()
+def run_content_generation(client_id: str) -> None:
+    """Run content generation with all agents.
     
-    for agent_class, agent_name in AGENT_ORDER:
-        try:
-            output = run_agent(agent_class, agent_name, transcript_text, style_data)
-            save_output(output, AGENT_OUTPUTS[agent_name], output_dir)
-            success_count += 1
-        except Exception as e:
-            logging.error(f"Agent {agent_name} failed: {str(e)}")
-            continue
-                
-    # Log completion
-    end_time = datetime.now()
-    duration = end_time - start_time
-    logging.info(f"\n Content generation complete ({success_count}/{total_agents} agents successful)")
-    logging.info(f"Duration: {duration.total_seconds():.2f} seconds")
-    logging.info(f"Files saved in: {output_dir}")
-
-@click.command()
-@click.option('--transcript', required=True, type=click.Path(exists=True), help='Path to transcript chunks file')
-@click.option('--style', required=True, type=click.Path(exists=True), help='Path to style profile file')
-def main(transcript: str, style: str) -> None:
-    """Main entry point for content generator."""
+    Args:
+        client_id: Client identifier (e.g. 'annie')
+    """
+    logging.info(f"Starting content generation for client: {client_id}")
+    
     try:
-        # Set up output directory
-        package_root = Path(__file__).parent.parent
-        output_dir = package_root / "output" / "app3"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Load input files from Supabase
+        logging.info("Fetching input files from Supabase...")
+        transcript_path = f"client-files/{client_id}/transcript_chunks.md"
+        style_path = f"client-files/{client_id}/style-profile.md"
         
-        # Set up logging
-        setup_logging(output_dir)
+        print(f"Fetching input files for client {client_id}:")
+        print(f"- Transcript: {transcript_path}")
+        print(f"- Style Profile: {style_path}")
         
-        logging.info("Loading input files...")
-        # Load input files
-        transcript_text = load_transcript(transcript)
-        style_data = load_style_profile(style)
+        transcript = input_storage.fetch_input_file(transcript_path)
+        print(f"Successfully fetched {transcript_path}")
         
-        logging.info("Starting content generation...")
-        # Run content generation
-        run_content_generation(transcript_text, style_data, output_dir)
+        style = input_storage.fetch_input_file(style_path)
+        print(f"Successfully fetched {style_path}")
         
+        logging.info("Successfully loaded input files")
+        
+        # Run each agent
+        for agent_name in AGENT_TYPES:
+            logging.info(f"Running {agent_name}...")
+            run_agent(agent_name, transcript, style, client_id)
+            
     except Exception as e:
         logging.error(f"Content generation failed: {str(e)}")
         raise
+
+@click.command()
+@click.option('--client', required=True, help='Client identifier (e.g. annie)')
+def main(client: str):
+    """Main entry point for content generator."""
+    try:
+        run_content_generation(client)
+    except Exception as e:
+        logging.error(f"Failed to generate content: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

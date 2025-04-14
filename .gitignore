@@ -26,10 +26,6 @@ yarn-error.log*
 *.log
 *.sqlite
 
-# Output files
-output/app3/*.md
-!output/app3/.gitkeep
-
 # Environment variables
 .env
 .env.local

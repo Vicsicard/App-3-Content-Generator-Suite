@@ -1,29 +1,45 @@
-import { writeContent } from '../../utils/contentWriter';
+import { writeContent } from '../../utils/contentWriter.ts';
 
-export async function generateFacebookPost(transcript: string, styleProfile: any) {
-  // Facebook-specific requirements:
-  // - Longer form content allowed
-  // - Supports rich media
-  // - More personal/conversational tone
-  // - Community engagement focus
-  const facebookContent = `# Facebook Post
-🎯 Leadership Lesson of the Day
+interface StyleProfile {
+  voice: string[];
+  themes: string[];
+}
 
-Today, I want to share something important about leadership that often gets overlooked...
+export async function generateFacebookPost(transcript: string, styleProfile: StyleProfile) {
+  // Extract key insights from the transcript chunks
+  const chunks = transcript.split('## [Chunk').slice(1);
+  const insights = chunks.map(chunk => {
+    const quote = chunk.match(/> Speaker \d+: (.+?)(?=\n|$)/)?.[1] || '';
+    return quote.trim();
+  }).filter(Boolean);
 
-[Engaging story here]
+  // Create an engaging Facebook post
+  const mainQuote = insights[0]; // Use the first insight as the main quote
+  const reflection = insights[1]; // Use the second insight for reflection
+  const callToAction = insights[2]; // Use the third insight for call to action
 
-What's your experience with leadership? Share your thoughts below! 👇
+  const facebookContent = `# Finding Your Authentic Path 
 
-#Leadership #Community #Growth`;
+${mainQuote}
+
+This really hit home for me. So often, we get caught up in trying to follow someone else's roadmap to success, but here's what I've learned:
+
+${reflection}
+
+And you know what's amazing? ${callToAction}
+
+What's your experience with finding your authentic path? Has there been a moment when you realized you needed to chart your own course? Share your story below! 
+
+#AuthenticLeadership #PersonalGrowth #FindingYourPath`;
 
   await writeContent('output_facebook.md', facebookContent, {
-    section: 'social',
+    section: 'facebook',
+    title: "Finding Your Authentic Path: A Leadership Journey",
     platform: 'facebook',
-    caption: 'Leadership insights and community discussion',
+    caption: 'Authenticity and personal growth journey',
     scheduledDate: new Date().toISOString(),
     status: 'draft',
-    tags: ['leadership', 'community']
+    tags: ['leadership', 'authenticity', 'personal-growth']
   });
 
   return facebookContent;

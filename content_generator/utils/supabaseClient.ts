@@ -1,23 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-const supabaseUrl = 'https://aqicztygjpmunfljjuto.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxaWN6dHlnanBtdW5mbGpqdXRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3MDU1ODIsImV4cCI6MjA1OTI4MTU4Mn0.5e2hvTckSSbTFLBjQiccrvjoBd6QQDX0X4tccFOc1rs';
+dotenv.config();
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Helper function to write content to Supabase
+export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : undefined;
+
+export interface ContentWriteOptions {
+  section?: string;
+  content: string;
+  title?: string;
+  status?: string;
+  tags?: string[];
+  excerpt?: string;
+}
+
 export async function writeContentToSupabase(
   section: string,
   content: string,
-  options?: {
-    title?: string;
-    type?: string;
-    platform?: string;
-    scheduledDate?: string;
-    caption?: string;
-    tags?: string[];
-  }
+  options?: ContentWriteOptions
 ) {
+  if (!supabase) {
+    console.warn('Supabase client not initialized - skipping database write');
+    return null;
+  }
+
   try {
     const { data, error } = await supabase
       .from('content')
@@ -25,8 +34,11 @@ export async function writeContentToSupabase(
         {
           section,
           content,
-          status: 'draft',
-          ...options
+          status: options?.status || 'draft',
+          title: options?.title,
+          tags: options?.tags,
+          excerpt: options?.excerpt,
+          updated_at: new Date().toISOString()
         }
       ])
       .select();
@@ -35,7 +47,6 @@ export async function writeContentToSupabase(
     return data;
   } catch (error) {
     console.error('Error writing to Supabase:', error);
-    // Don't throw - allow file writing to continue even if DB fails
-    return null;
+    throw error;
   }
 }
