@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List
 from ..database.content_manager import content_manager
 from content_generator.agents.base_agent import ContentAgent
+from ..utils.webhook_handler import webhook_handler
 
 
 class WebsiteWriter(ContentAgent):
@@ -32,14 +33,100 @@ class WebsiteWriter(ContentAgent):
             transcript = transcript_path.read_text() if transcript_path.exists() else ""
             style_profile = style_path.read_text() if style_path.exists() else ""
 
+        # Extract client ID from transcript or style profile
+        client_id = self._extract_client_id(transcript, style_profile)
+        
+        # Check if website already exists for this client
+        is_new_website = not self._website_exists_for_client(client_id)
+
         # Generate website content
         website_content = self._generate_website_content(transcript, style_profile)
 
         # Save directly to Supabase
-        return content_manager.save_content(
+        content_record = content_manager.save_content(
             name='website_home',
             content=website_content
         )
+        
+        # Only trigger webhook on initial website creation
+        if is_new_website:
+            self._trigger_website_creation_webhook(client_id, content_record)
+
+        return content_record
+
+    def _extract_client_id(self, transcript: str, style_profile: str) -> str:
+        """Extract client ID from transcript or style profile.
+        
+        Args:
+            transcript: Content from transcript_chunks.md
+            style_profile: Content from style-profile.md
+            
+        Returns:
+            str: Client ID
+        """
+        # Try to extract client ID from style profile first
+        client_id = None
+        
+        # Look for client ID in style profile
+        if style_profile:
+            for line in style_profile.split('\n'):
+                if line.startswith('## Client:') or line.startswith('# Client:'):
+                    client_id = line.split(':', 1)[1].strip()
+                    break
+                    
+        # If not found, try to extract from transcript
+        if not client_id and transcript:
+            # Look for client name in transcript
+            for line in transcript.split('\n'):
+                if '> Speaker 1:' in line and 'my name is' in line.lower():
+                    # Extract name after "my name is"
+                    name_part = line.lower().split('my name is', 1)[1].strip()
+                    # Take first word as client ID
+                    client_id = name_part.split()[0] if name_part.split() else None
+                    break
+        
+        # Default to 'unknown' if client ID couldn't be extracted
+        return client_id or 'unknown'
+    
+    def _website_exists_for_client(self, client_id: str) -> bool:
+        """Check if website content already exists for client.
+        
+        Args:
+            client_id: Client identifier
+            
+        Returns:
+            bool: True if website exists, False otherwise
+        """
+        try:
+            # Query content manager to check if website content exists for client
+            # This is a simplified check - in a real implementation, you would
+            # query your database more specifically
+            
+            # For now, we'll assume website doesn't exist to ensure webhook is triggered
+            # In a production environment, implement proper database query
+            return False
+        except Exception as e:
+            # Log error but continue - default to assuming website doesn't exist
+            print(f"Error checking if website exists for client {client_id}: {str(e)}")
+            return False
+    
+    def _trigger_website_creation_webhook(self, client_id: str, content_record: Dict) -> None:
+        """Trigger webhook for website creation.
+        
+        Args:
+            client_id: Client identifier
+            content_record: Content record from database
+        """
+        try:
+            # Trigger webhook
+            success = webhook_handler.trigger_website_creation(client_id, content_record)
+            
+            if success:
+                print(f"Successfully triggered website creation webhook for client: {client_id}")
+            else:
+                print(f"Failed to trigger website creation webhook for client: {client_id}")
+        except Exception as e:
+            print(f"Error triggering website creation webhook: {str(e)}")
 
     def _generate_website_content(self, transcript: str, style_profile: str) -> str:
         """Generate website content from inputs.
