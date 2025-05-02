@@ -18,6 +18,9 @@ export async function generateFacebookPost(transcript: string, styleProfile: Sty
   const reflection = insights[1]; // Use the second insight for reflection
   const callToAction = insights[2]; // Use the third insight for call to action
 
+  // Generate an excerpt that summarizes the content
+  const excerpt = `A focused discussion on authentic leadership featuring insights on personal growth, finding your path, and challenging conventional wisdom.`;
+
   const facebookContent = `# Finding Your Authentic Path 
 
 ${mainQuote}
@@ -37,6 +40,7 @@ What's your experience with finding your authentic path? Has there been a moment
     title: "Finding Your Authentic Path: A Leadership Journey",
     platform: 'facebook',
     caption: 'Authenticity and personal growth journey',
+    excerpt: excerpt, // Added excerpt field
     scheduledDate: new Date().toISOString(),
     status: 'draft',
     tags: ['leadership', 'authenticity', 'personal-growth']

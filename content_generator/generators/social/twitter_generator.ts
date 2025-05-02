@@ -6,43 +6,39 @@ interface StyleProfile {
 }
 
 export async function generateTwitterPost(transcript: string, styleProfile: StyleProfile) {
-  // Extract key insights from the transcript chunks
+  // Extract key sentences from the transcript chunks
   const chunks = transcript.split('## [Chunk').slice(1);
   const insights = chunks.map(chunk => {
     const quote = chunk.match(/> Speaker \d+: (.+?)(?=\n|$)/)?.[1] || '';
     return quote.trim();
-  }).filter(Boolean);
+  }).filter(Boolean).slice(0, 3);
 
-  // Create a Twitter thread
-  const mainQuote = insights[0]; // Use the first insight as the main quote
-  const reflection = insights[1]; // Use the second insight for reflection
-  const callToAction = insights[2]; // Use the third insight for call to action
+  // Generate a concise Twitter post
+  const selectedInsight = insights[0] || "The key to success is authenticity and staying true to your values.";
+  
+  // Generate an excerpt that summarizes the content
+  const excerpt = `A concise reflection on leadership principles and authentic connection with your audience.`;
 
-  const twitterContent = `# Finding Your Path - A Thread 
+  // Make sure the tweet is under 280 characters
+  let tweetContent = `"${selectedInsight.substring(0, 200)}" 
 
-1/ Truth bomb: ${mainQuote.split('.')[0]}.
+What's your take on this? #Leadership #Authenticity #Growth`;
 
-2/ The journey wasn't easy. ${reflection.split('.')[0]}.
+  // Ensure tweet is under character limit
+  if (tweetContent.length > 280) {
+    tweetContent = tweetContent.substring(0, 277) + '...';
+  }
 
-3/ The game-changer? ${callToAction.split('.')[0]}.
-
-4/ Your uniqueness isn't just a differentiator—it's your superpower.
-
-5/ Stop following others' blueprints. Start creating your own.
-
-6/ Remember: authenticity attracts authenticity.
-
-#AuthenticLeadership #BeYourself`;
-
-  await writeContent('output_twitter.md', twitterContent, {
+  await writeContent('output_twitter.md', tweetContent, {
     section: 'twitter',
-    title: "Authentic Leadership Thread: Key Insights",
+    title: "Leadership Insight of the Day",
     platform: 'twitter',
-    caption: 'Thread on authentic leadership insights',
+    caption: 'Thought-provoking leadership quote',
+    excerpt: excerpt, 
     scheduledDate: new Date().toISOString(),
     status: 'draft',
-    tags: ['leadership', 'authenticity', 'thread']
+    tags: ['leadership', 'quote', 'insight']
   });
 
-  return twitterContent;
+  return tweetContent;
 }
